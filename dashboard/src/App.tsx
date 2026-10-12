@@ -42,7 +42,7 @@ export const App: React.FC = () => {
         sellers.map(async (s: User) => {
           try {
             const res = await api.getStockSummary(s.id);
-            summariesMap[s.id] = res.summaries || [];
+            summariesMap[s.id] = res.summary || res.summaries || [];
           } catch {
             summariesMap[s.id] = [];
           }

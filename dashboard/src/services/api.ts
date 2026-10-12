@@ -98,7 +98,7 @@ export const api = {
 
   // Estoque
   getStockSummary: (sellerId?: string) =>
-    request<{ summaries: StockSummary[] }>(`/stock/summary${sellerId ? `?sellerId=${sellerId}` : ''}`),
+    request<{ summary?: StockSummary[]; summaries?: StockSummary[] }>(`/stock/summary${sellerId ? `?sellerId=${sellerId}` : ''}`),
 
   sendStockShipment: (sellerId: string, productId: string, quantity: number, notes?: string) =>
     request<{ success: boolean; message: string }>('/stock/shipment', {

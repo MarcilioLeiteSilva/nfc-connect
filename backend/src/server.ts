@@ -229,9 +229,10 @@ app.get('/api/stock/summary', authMiddleware, async (req: AuthRequest, res: Resp
 
   try {
     const summary = await calculateStockSummary(targetSellerId);
-    res.json({ summary });
-  } catch (err) {
-    res.status(500).json({ error: 'Erro ao calcular estoque' });
+    res.json({ summary, summaries: summary });
+  } catch (err: any) {
+    console.error('Erro ao calcular estoque:', err);
+    res.status(500).json({ error: err.message || 'Erro ao calcular estoque' });
   }
 });
 
@@ -252,42 +253,74 @@ app.get('/api/stock/movements', authMiddleware, async (req: AuthRequest, res: Re
     query += ' ORDER BY created_at DESC LIMIT 50';
     const result = await pool.query(query, params);
     res.json({ movements: result.rows });
-  } catch (err) {
-    res.status(500).json({ error: 'Erro ao buscar movimentações' });
+  } catch (err: any) {
+    console.error('Erro ao buscar movimentações:', err);
+    res.status(500).json({ error: err.message || 'Erro ao buscar movimentações' });
   }
 });
 
 // POST /api/stock/shipment (ADMIN ONLY)
 app.post('/api/stock/shipment', authMiddleware, requireAdmin, async (req: AuthRequest, res: Response) => {
-  const { sellerId, googleQty, instagramQty, notes } = req.body;
+  let { sellerId, googleQty, instagramQty, productId, quantity, notes } = req.body;
+
+  if (productId && quantity) {
+    if (productId === 'google') googleQty = (Number(googleQty) || 0) + Number(quantity);
+    if (productId === 'instagram') instagramQty = (Number(instagramQty) || 0) + Number(quantity);
+  }
+
+  const finalGoogleQty = Number(googleQty) || 0;
+  const finalInstaQty = Number(instagramQty) || 0;
+
+  if (finalGoogleQty <= 0 && finalInstaQty <= 0) {
+    res.status(400).json({ error: 'Informe uma quantidade válida maior que zero para o envio da remessa.' });
+    return;
+  }
 
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    const shipmentDate = new Date();
 
-    if (googleQty > 0) {
+    if (finalGoogleQty > 0) {
+      const shipId = `ship-${Date.now()}-goog`;
       const movId = `mov-${Date.now()}-goog`;
+
+      await client.query(
+        `INSERT INTO stock_shipments (id, seller_id, product_id, quantity, notes, created_by)
+         VALUES ($1, $2, 'google', $3, $4, $5)`,
+        [shipId, sellerId, finalGoogleQty, notes || 'Remessa enviada pela administração', req.user!.id]
+      );
+
       await client.query(
         `INSERT INTO stock_movements (id, seller_id, product_id, type, quantity, reason, created_by)
          VALUES ($1, $2, 'google', 'IN_SHIPMENT', $3, $4, $5)`,
-        [movId, sellerId, googleQty, notes || 'Remessa enviada pela administração', req.user!.id]
+        [movId, sellerId, finalGoogleQty, notes || 'Remessa enviada pela administração', req.user!.id]
       );
     }
 
-    if (instagramQty > 0) {
+    if (finalInstaQty > 0) {
+      const shipId = `ship-${Date.now()}-insta`;
       const movId = `mov-${Date.now()}-insta`;
+
+      await client.query(
+        `INSERT INTO stock_shipments (id, seller_id, product_id, quantity, notes, created_by)
+         VALUES ($1, $2, 'instagram', $3, $4, $5)`,
+        [shipId, sellerId, finalInstaQty, notes || 'Remessa enviada pela administração', req.user!.id]
+      );
+
       await client.query(
         `INSERT INTO stock_movements (id, seller_id, product_id, type, quantity, reason, created_by)
          VALUES ($1, $2, 'instagram', 'IN_SHIPMENT', $3, $4, $5)`,
-        [movId, sellerId, instagramQty, notes || 'Remessa enviada pela administração', req.user!.id]
+        [movId, sellerId, finalInstaQty, notes || 'Remessa enviada pela administração', req.user!.id]
       );
     }
 
     await client.query('COMMIT');
-    res.json({ success: true, message: 'Remessa lançada com sucesso no estoque!' });
-  } catch (err) {
+    res.json({ success: true, message: 'Remessa lançada com sucesso! O estoque foi creditado ao vendedor.' });
+  } catch (err: any) {
     await client.query('ROLLBACK');
-    res.status(500).json({ error: 'Erro ao lançar remessa' });
+    console.error('Erro ao lançar remessa:', err);
+    res.status(500).json({ error: err.message || 'Erro ao lançar remessa' });
   } finally {
     client.release();
   }
