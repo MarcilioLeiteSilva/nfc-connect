@@ -15,13 +15,57 @@ export const pool = new Pool({
   ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false
 });
 
+export let isDatabaseInitialized = false;
+
+/**
+ * Cria o banco 'nfc-connect' no PostgreSQL caso ainda não exista no servidor
+ */
+async function ensureDatabaseExists() {
+  const adminUrl = connectionString.replace(/\/nfc-connect(\?.*)?$/, '/postgres$1');
+  const adminPool = new Pool({
+    connectionString: adminUrl,
+    ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false
+  });
+
+  try {
+    const client = await adminPool.connect();
+    try {
+      const checkRes = await client.query(`SELECT 1 FROM pg_database WHERE datname = 'nfc-connect'`);
+      if (checkRes.rows.length === 0) {
+        console.log('[DB] Banco "nfc-connect" não encontrado. Criando automaticamente...');
+        await client.query(`CREATE DATABASE "nfc-connect"`);
+        console.log('[DB] Banco "nfc-connect" criado com sucesso!');
+      }
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.warn('[DB] Verificação de banco mestre "postgres" ignorada:', (err as any).message);
+  } finally {
+    await adminPool.end().catch(() => {});
+  }
+}
+
 /**
  * Inicialização e Migração Automática de Tabelas (ACID)
  */
 export async function initDatabase() {
-  const client = await pool.connect();
+  let client;
   try {
-    console.log('[DB] Conectado ao PostgreSQL. Verificando tabelas...');
+    client = await pool.connect();
+  } catch (connectErr: any) {
+    // Se o banco nfc-connect ainda não existir (código 3D000), tenta criá-lo
+    if (connectErr.code === '3D000') {
+      await ensureDatabaseExists();
+      client = await pool.connect();
+    } else {
+      throw connectErr;
+    }
+  }
+
+  try {
+    console.log('[DB] Conectado ao PostgreSQL. Verificando e criando tabelas...');
+
 
     await client.query(`
       -- 1. Usuários (Admin e Vendedores)
@@ -163,11 +207,27 @@ export async function initDatabase() {
       console.log('[DB] Banco populado com usuários e estoque inicial da Comunicar Marketing.');
     }
 
+    isDatabaseInitialized = true;
     console.log('[DB] Migração e estrutura do banco aprovadas com sucesso.');
   } catch (err) {
+    isDatabaseInitialized = false;
     console.error('[DB] Erro ao inicializar tabelas:', err);
     throw err;
   } finally {
-    client.release();
+    client?.release();
   }
 }
+
+/**
+ * Garante que a migração foi executada pelo menos uma vez
+ */
+export async function ensureDatabase(): Promise<boolean> {
+  if (isDatabaseInitialized) return true;
+  try {
+    await initDatabase();
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
+

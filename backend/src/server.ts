@@ -3,7 +3,7 @@ import cors from 'cors';
 import bcrypt from 'bcryptjs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { pool, initDatabase } from './db.js';
+import { pool, initDatabase, isDatabaseInitialized, ensureDatabase } from './db.js';
 import {
   AuthRequest,
   authMiddleware,
@@ -20,7 +20,81 @@ const PORT = process.env.PORT || 80;
 app.use(cors());
 app.use(express.json());
 
+// Middleware para garantir que o banco seja conectado/migrado assim que disponível
+app.use(async (req, _res, next) => {
+  if (req.path.startsWith('/api') && !req.path.startsWith('/api/health') && !isDatabaseInitialized) {
+    try {
+      await ensureDatabase();
+    } catch {
+      // Deixa prosseguir caso ainda esteja offline
+    }
+  }
+  next();
+});
+
+// --- DIAGNÓSTICO E HEALTHCHECK ---
+
+// GET /api/health
+app.get('/api/health', async (_req: Request, res: Response) => {
+  res.json({
+    status: 'online',
+    timestamp: new Date().toISOString(),
+    databaseInitialized: isDatabaseInitialized
+  });
+});
+
+// GET /api/db/status (Verifica conexão e lista tabelas reais)
+app.get('/api/db/status', async (_req: Request, res: Response) => {
+  try {
+    const client = await pool.connect();
+    try {
+      const tablesRes = await client.query(`
+        SELECT table_name 
+        FROM information_schema.tables 
+        WHERE table_schema = 'public'
+        ORDER BY table_name;
+      `);
+      res.json({
+        connected: true,
+        databaseInitialized: isDatabaseInitialized,
+        tablesCount: tablesRes.rows.length,
+        tables: tablesRes.rows.map(r => r.table_name),
+        databaseUrlConfigured: !!process.env.DATABASE_URL
+      });
+    } finally {
+      client.release();
+    }
+  } catch (err: any) {
+    res.status(500).json({
+      connected: false,
+      databaseInitialized: isDatabaseInitialized,
+      error: err.message,
+      code: err.code,
+      databaseUrlConfigured: !!process.env.DATABASE_URL
+    });
+  }
+});
+
+// ALL /api/db/init (Força migração e criação das tabelas no PostgreSQL)
+app.all('/api/db/init', async (_req: Request, res: Response) => {
+  try {
+    await initDatabase();
+    res.json({
+      success: true,
+      message: 'Migração executada com sucesso! Tabelas e dados padrão criados no PostgreSQL.',
+      databaseInitialized: isDatabaseInitialized
+    });
+  } catch (err: any) {
+    res.status(500).json({
+      success: false,
+      error: err.message,
+      code: err.code
+    });
+  }
+});
+
 // --- 1. ROTAS DE AUTENTICAÇÃO ---
+
 
 // POST /api/auth/login
 app.post('/api/auth/login', async (req: Request, res: Response) => {
@@ -535,8 +609,20 @@ app.get('*', (_req: Request, res: Response) => {
 async function start() {
   try {
     await initDatabase();
-  } catch (err) {
-    console.warn('[AVISO] Não foi possível conectar ao PostgreSQL agora. O servidor iniciará em modo de espera.');
+    console.log('[DB] PostgreSQL conectado e tabelas verificadas com sucesso na inicialização.');
+  } catch (err: any) {
+    console.warn('[AVISO] PostgreSQL ainda não disponível na inicialização:', err.message);
+    console.log('[DB] Iniciando rotina de tentativas automáticas de conexão a cada 5 segundos...');
+    
+    const retryInterval = setInterval(async () => {
+      try {
+        await initDatabase();
+        console.log('[DB] Conectado ao PostgreSQL com sucesso! Tabelas e seeds criados.');
+        clearInterval(retryInterval);
+      } catch (retryErr: any) {
+        console.warn('[DB] Tentando reconectar ao PostgreSQL em 5s... Detalhe:', retryErr.message);
+      }
+    }, 5000);
   }
 
   app.listen(PORT, () => {
@@ -545,3 +631,4 @@ async function start() {
 }
 
 start();
+
