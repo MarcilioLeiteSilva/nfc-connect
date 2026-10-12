@@ -44,3 +44,28 @@ A aplicação foi desenvolvida em formato **PWA (Progressive Web App)** para ser
 - **Estilização:** Vanilla CSS Mobile-First com Design System moderno (Dark Mode, Glassmorphism, Safe-Area insets)
 - **Ícones & UX:** Lucide React + Micro-animações táteis
 - **Armazenamento:** LocalStorage Reativo com suporte a fila offline e sincronização automática
+
+---
+
+## 🖥️ Painel Administrativo Web Desktop (`/dashboard`)
+
+Painel executivo completo para gestão da operação, força de vendas, comissões, estoque e inteligência comercial:
+
+### Como Rodar o Dashboard:
+```bash
+cd dashboard
+npm install
+npm run dev
+```
+Acesse no navegador: **`http://localhost:5174/`**
+
+### Módulos Integrados:
+1. **Visão Geral Executiva:** Faturamento bruto, lucro operacional líquido, comissões a pagar, placas ativas e ranking da equipe.
+2. **Gestão de Vendas & Auditoria:** Histórico com filtros dinâmicos, estornos auditados e exportação de relatórios em CSV.
+3. **Gestão de Vendedores:** Cadastro completo, chaves Pix, metas mensais e controle de sessões.
+4. **Controle de Estoque & Remessas:** Saldo em posse de vendedores e envio de novos lotes de placas.
+5. **Comissões & Central de Pagamentos:** Fechamento mensal, cópia rápida de Pix e DRE simplificado da operação.
+6. **CRM de Lojistas:** Base de estabelecimentos atendidos e identificação de oportunidades de venda cruzada (Upsell).
+7. **Catálogo & Tecnologia NFC:** Especificações técnicas das placas Google e Instagram.
+8. **Materiais de Apoio:** Manuais de capacitação da equipe.
+9. **Segurança & Auditoria:** Monitoramento de acessos e integridade do banco.

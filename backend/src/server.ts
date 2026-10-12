@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import cors from 'cors';
 import bcrypt from 'bcryptjs';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { pool, initDatabase, isDatabaseInitialized, ensureDatabase } from './db.js';
 import {
@@ -597,7 +598,15 @@ app.post('/api/commissions/toggle', authMiddleware, requireAdmin, async (req: Au
   }
 });
 
-// --- 6. SERVIÇO DE ARQUIVOS ESTÁTICOS DO FRONTEND (SPA FALLBACK) ---
+// --- 6. SERVIÇO DE ARQUIVOS ESTÁTICOS DO DASHBOARD E FRONTEND (SPA FALLBACK) ---
+const dashboardDistPath = path.resolve(__dirname, '../../dashboard/dist');
+if (fs.existsSync(dashboardDistPath)) {
+  app.use('/dashboard', express.static(dashboardDistPath));
+  app.get('/dashboard*', (_req: Request, res: Response) => {
+    res.sendFile(path.join(dashboardDistPath, 'index.html'));
+  });
+}
+
 const frontendDistPath = path.resolve(__dirname, '../../frontend/dist');
 app.use(express.static(frontendDistPath));
 

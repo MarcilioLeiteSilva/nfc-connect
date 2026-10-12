@@ -1,4 +1,4 @@
-# Estágio 1: Build do Frontend React + Vite
+# Estágio 1: Build do Frontend React Mobile + Vite
 FROM node:22-alpine AS frontend-builder
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
@@ -6,7 +6,15 @@ RUN npm ci
 COPY frontend/ ./
 RUN npm run build
 
-# Estágio 2: Build do Backend TypeScript
+# Estágio 2: Build do Dashboard Executivo React + Vite
+FROM node:22-alpine AS dashboard-builder
+WORKDIR /app/dashboard
+COPY dashboard/package*.json ./
+RUN npm ci
+COPY dashboard/ ./
+RUN npm run build
+
+# Estágio 3: Build do Backend TypeScript
 FROM node:22-alpine AS backend-builder
 WORKDIR /app/backend
 COPY backend/package*.json ./
@@ -14,7 +22,7 @@ RUN npm ci
 COPY backend/ ./
 RUN npm run build
 
-# Estágio 3: Container de Produção Unificado de Alta Performance
+# Estágio 4: Container de Produção Unificado de Alta Performance
 FROM node:22-alpine AS runner
 WORKDIR /app
 
@@ -29,8 +37,9 @@ RUN cd backend && npm ci --omit=dev
 # Copia código compilado do backend
 COPY --from=backend-builder /app/backend/dist ./backend/dist
 
-# Copia arquivos estáticos compilados do frontend
+# Copia arquivos estáticos compilados do frontend mobile e do dashboard executivo
 COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
+COPY --from=dashboard-builder /app/dashboard/dist ./dashboard/dist
 
 WORKDIR /app/backend
 

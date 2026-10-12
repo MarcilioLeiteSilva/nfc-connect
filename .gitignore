@@ -3,6 +3,7 @@ node_modules/
 dist/
 dist-ssr/
 build/
+*.tsbuildinfo
 *.local
 
 # Segurança & Arquivos Sensíveis (NUNCA SUBIR AO GITHUB)
@@ -40,5 +41,5 @@ Thumbs.db
 *.suo
 *.ntvs*
 *.njsproj
-*.sln
-*.sw?
+# Documentações Internas
+relatorios/
