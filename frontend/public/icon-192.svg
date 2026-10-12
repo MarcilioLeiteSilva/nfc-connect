@@ -1,18 +1,29 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" fill="none">
   <defs>
     <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#0284c7"/>
-      <stop offset="100%" stop-color="#0f172a"/>
+      <stop offset="0%" stop-color="#0a1224"/>
+      <stop offset="100%" stop-color="#030712"/>
     </linearGradient>
-    <linearGradient id="wave" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#38bdf8"/>
-      <stop offset="100%" stop-color="#818cf8"/>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fde047"/>
+      <stop offset="50%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
     </linearGradient>
   </defs>
+
   <rect width="192" height="192" rx="48" fill="url(#bg)"/>
-  <path d="M72 96C72 82.745 82.745 72 96 72C109.255 72 120 82.745 120 96" stroke="url(#wave)" stroke-width="12" stroke-linecap="round"/>
-  <path d="M56 96C56 73.9086 73.9086 56 96 56C118.091 56 136 73.9086 136 96" stroke="url(#wave)" stroke-width="12" stroke-linecap="round" opacity="0.85"/>
-  <path d="M40 96C40 65.072 65.072 40 96 40C126.928 40 152 65.072 152 96" stroke="url(#wave)" stroke-width="12" stroke-linecap="round" opacity="0.65"/>
-  <circle cx="96" cy="96" r="12" fill="#38bdf8"/>
-  <text x="96" y="160" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="900" fill="#ffffff" text-anchor="middle" letter-spacing="2">NFC</text>
+  <circle cx="96" cy="85" r="54" stroke="url(#gold)" stroke-width="5" fill="#070d1e"/>
+
+  <!-- Barras brancas -->
+  <rect x="67" y="88" width="11" height="24" rx="3" fill="#ffffff"/>
+  <rect x="84" y="73" width="11" height="39" rx="3" fill="#ffffff"/>
+  <rect x="101" y="58" width="11" height="54" rx="3" fill="#ffffff"/>
+
+  <!-- Seta dourada ascendente -->
+  <path d="M62 90 L92 68 L108 81 L134 48" stroke="url(#gold)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <polygon points="138,42 124,48 131,56" fill="url(#gold)"/>
+
+  <!-- Tipografia Oficial -->
+  <text x="96" y="156" font-family="'Plus Jakarta Sans', system-ui, sans-serif" font-size="14" font-weight="900" fill="#ffffff" text-anchor="middle" letter-spacing="2">COMUNICAR</text>
+  <text x="96" y="170" font-family="'Plus Jakarta Sans', system-ui, sans-serif" font-size="8" font-weight="800" fill="#fbbf24" text-anchor="middle" letter-spacing="3">MARKETING</text>
 </svg>

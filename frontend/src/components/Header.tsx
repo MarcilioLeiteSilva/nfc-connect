@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { User } from '../types';
 import { storageService } from '../services/storageService';
+import { ComunicarLogo } from './ComunicarLogo';
 import {
   Wifi,
   WifiOff,
@@ -15,6 +16,7 @@ interface HeaderProps {
   currentUser: User;
   isOnline: boolean;
   onOpenPwaModal: () => void;
+  onShowSplash: () => void;
   pendingSyncCount: number;
 }
 
@@ -22,6 +24,7 @@ export const Header: React.FC<HeaderProps> = ({
   currentUser,
   isOnline,
   onOpenPwaModal,
+  onShowSplash,
   pendingSyncCount
 }) => {
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -41,21 +44,8 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className="app-header">
-      <div className="brand-section">
-        <div className="brand-logo-icon">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-            <path d="M6 8.5C7.5 7 9.5 6 12 6s4.5 1 6 2.5" />
-            <path d="M4 5.5C6.5 3.5 9 2.5 12 2.5s5.5 1 8 3" opacity="0.6" />
-            <path d="M8.5 12C9.5 11 10.7 10.5 12 10.5s2.5.5 3.5 1.5" />
-            <circle cx="12" cy="16" r="2" fill="currentColor" />
-          </svg>
-        </div>
-        <div className="brand-title">
-          <span>NFC CONNECT</span>
-          <span className="brand-subtitle">
-            {currentUser.role === 'ADMIN' ? 'Painel Gestor' : 'App Vendedor'}
-          </span>
-        </div>
+      <div className="brand-section" onClick={onShowSplash} style={{ cursor: 'pointer' }} title="Clique para ver a tela Splash da marca">
+        <ComunicarLogo size={34} showText={true} />
       </div>
 
       <div className="header-actions">
@@ -109,9 +99,9 @@ export const Header: React.FC<HeaderProps> = ({
           title="Alternar Perfil para Teste"
         >
           {currentUser.role === 'ADMIN' ? (
-            <ShieldCheck size={14} color="#38bdf8" />
+            <ShieldCheck size={14} color="#fbbf24" />
           ) : (
-            <UserCheck size={14} color="#10b981" />
+            <UserCheck size={14} color="#34d399" />
           )}
           <span>{currentUser.name.split(' ')[0]}</span>
           <ChevronDown size={13} />
@@ -135,7 +125,7 @@ export const Header: React.FC<HeaderProps> = ({
             boxShadow: 'var(--shadow-lg)'
           }}
         >
-          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-dim)', padding: '4px 8px' }}>
+          <div style={{ fontSize: 11, fontWeight: 800, color: '#fbbf24', padding: '4px 8px', letterSpacing: '0.05em' }}>
             ALTERNAR USUÁRIO (TESTE)
           </div>
 
@@ -151,7 +141,7 @@ export const Header: React.FC<HeaderProps> = ({
                 borderRadius: 8,
                 background: u.id === currentUser.id ? 'var(--bg-surface-hover)' : 'transparent',
                 textAlign: 'left',
-                border: u.id === currentUser.id ? '1px solid var(--primary-light)' : 'none'
+                border: u.id === currentUser.id ? '1px solid #fbbf24' : 'none'
               }}
             >
               <div>
@@ -161,12 +151,27 @@ export const Header: React.FC<HeaderProps> = ({
                 </div>
               </div>
               {u.id === currentUser.id && (
-                <div style={{ width: 8, height: 8, borderRadius: 4, background: 'var(--primary-light)' }} />
+                <div style={{ width: 8, height: 8, borderRadius: 4, background: '#fbbf24' }} />
               )}
             </button>
           ))}
 
           <div style={{ height: 1, background: 'var(--border-subtle)', margin: '4px 0' }} />
+
+          <button
+            onClick={onShowSplash}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '8px 10px',
+              borderRadius: 8,
+              fontSize: 12,
+              color: '#fbbf24'
+            }}
+          >
+            <span>✨ Ver Tela Splash da Marca</span>
+          </button>
 
           <button
             onClick={handleResetData}

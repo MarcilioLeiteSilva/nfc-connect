@@ -4,6 +4,7 @@ import { Header } from './components/Header';
 import { BottomNav } from './components/BottomNav';
 import { OfflineBanner } from './components/OfflineBanner';
 import { PwaInstallModal } from './components/PwaInstallModal';
+import { SplashScreen } from './components/SplashScreen';
 
 // Páginas do Vendedor
 import { SellerHome } from './pages/seller/SellerHome';
@@ -24,6 +25,7 @@ export function App() {
   const [, setTick] = useState(0);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [showPwaModal, setShowPwaModal] = useState(false);
+  const [showSplash, setShowSplash] = useState(true);
 
   // Assinatura ao Storage para re-renderizar quando houver qualquer alteração de dados
   useEffect(() => {
@@ -80,12 +82,21 @@ export function App() {
 
   return (
     <div className="app-wrapper">
+      {/* Tela Splash Oficial Comunicar Marketing */}
+      {showSplash && (
+        <SplashScreen
+          durationMs={2500}
+          onFinish={() => setShowSplash(false)}
+        />
+      )}
+
       <div className={`app-container ${currentUser.role === 'ADMIN' ? 'admin-expanded' : ''}`}>
         {/* Cabeçalho */}
         <Header
           currentUser={currentUser}
           isOnline={isOnline}
           onOpenPwaModal={() => setShowPwaModal(true)}
+          onShowSplash={() => setShowSplash(true)}
           pendingSyncCount={pendingSales.length}
         />
 

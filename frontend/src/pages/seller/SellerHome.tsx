@@ -26,27 +26,40 @@ export const SellerHome: React.FC<SellerHomeProps> = ({ currentUser, onNavigate 
 
   return (
     <div className="main-content animate-fade-in">
-      {/* Boas-Vindas */}
+      {/* Eyebrow Oficial Comunicar Marketing */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
-          <span style={{ fontSize: 13, color: 'var(--text-dim)', fontWeight: 600 }}>
-            {performance.month}
-          </span>
-          <h1 style={{ fontSize: 22, marginTop: 2 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 800,
+                color: '#fbbf24',
+                letterSpacing: '0.12em',
+                textTransform: 'uppercase'
+              }}
+            >
+              ESTRATÉGIAS QUE GERAM RESULTADOS
+            </span>
+          </div>
+          <h1 style={{ fontSize: 22 }}>
             Olá, {currentUser.name.split(' ')[0]} 👋
           </h1>
+          <p style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 2 }}>
+            Marketing que impulsiona negócios • {performance.month}
+          </p>
         </div>
-        <div className="badge badge-info" style={{ gap: 4 }}>
+        <div className="badge badge-gold" style={{ gap: 4 }}>
           <Sparkles size={12} />
           <span>Meta: {performance.target} un</span>
         </div>
       </div>
 
-      {/* Card da Meta do Mês com Barra de Progresso */}
+      {/* Card da Meta do Mês com Barra de Progresso Dourada */}
       <div className="metric-card metric-card-highlight">
         <div className="metric-card-header">
           <span className="metric-card-title">PROGRESSO DA META MENSAL</span>
-          <Award size={18} color="#38bdf8" />
+          <Award size={18} color="#fbbf24" />
         </div>
 
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 4 }}>
@@ -59,7 +72,7 @@ export const SellerHome: React.FC<SellerHomeProps> = ({ currentUser, onNavigate 
               marginLeft: 'auto',
               fontSize: 16,
               fontWeight: 800,
-              color: performance.progressPercent >= 100 ? '#34d399' : '#38bdf8'
+              color: performance.progressPercent >= 100 ? '#34d399' : '#fbbf24'
             }}
           >
             {performance.progressPercent}%
@@ -106,7 +119,7 @@ export const SellerHome: React.FC<SellerHomeProps> = ({ currentUser, onNavigate 
         <div className="metric-card">
           <div className="metric-card-header">
             <span className="metric-card-title">FATURAMENTO</span>
-            <TrendingUp size={16} color="#38bdf8" />
+            <TrendingUp size={16} color="#fbbf24" />
           </div>
           <span className="metric-card-value" style={{ fontSize: 24 }}>
             R$ {performance.totalBilled.toFixed(2).replace('.', ',')}
@@ -142,12 +155,12 @@ export const SellerHome: React.FC<SellerHomeProps> = ({ currentUser, onNavigate 
       <div className="glass-panel" style={{ padding: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Package size={18} color="#38bdf8" />
+            <Package size={18} color="#fbbf24" />
             <h3 style={{ fontSize: 15, color: '#fff' }}>Seu Estoque em Mãos</h3>
           </div>
           <button
             onClick={() => onNavigate('stock')}
-            style={{ fontSize: 12, color: 'var(--primary-light)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}
+            style={{ fontSize: 12, color: '#fbbf24', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}
           >
             Ver Detalhes <ArrowRight size={13} />
           </button>
