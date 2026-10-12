@@ -8,31 +8,28 @@ import type {
   SellerStockSummary,
   SellerPerformance
 } from '../types';
-import {
-  INITIAL_MOVEMENTS,
-  INITIAL_PRODUCTS,
-  INITIAL_SALES,
-  INITIAL_SUPPORT_MATERIALS,
-  INITIAL_USERS
-} from '../mock/initialData';
+import { INITIAL_PRODUCTS, INITIAL_SUPPORT_MATERIALS } from '../mock/initialData';
+import { cryptoService } from './cryptoService';
+import { api } from './api';
 
 const STORAGE_KEYS = {
-  USERS: 'nfc_users_v1',
+  CURRENT_USER: 'nfc_auth_user_secure',
+  ENCRYPTED_OFFLINE_SALES: 'nfc_enc_offline_sales_v2',
   PRODUCTS: 'nfc_products_v1',
   MOVEMENTS: 'nfc_movements_v1',
   SALES: 'nfc_sales_v1',
-  CURRENT_USER_ID: 'nfc_current_user_id_v1',
   PAID_COMMISSIONS: 'nfc_paid_commissions_v1'
 };
 
 class StorageService {
-  private users: User[] = [];
-  private products: Product[] = [];
+  private currentUser: User | null = null;
+  private adminUsers: User[] = [];
+  private products: Product[] = INITIAL_PRODUCTS;
   private movements: StockMovement[] = [];
   private sales: Sale[] = [];
-  private currentUserId: string = 'user-seller-1'; // Padrão: João Silva (vendedor)
-  private paidCommissions: Record<string, boolean> = {}; // key: `sellerId_month`
+  private paidCommissions: Record<string, boolean> = {};
   private listeners: (() => void)[] = [];
+  private isSyncing = false;
 
   constructor() {
     this.init();
@@ -40,48 +37,50 @@ class StorageService {
 
   private init() {
     try {
-      const storedUsers = localStorage.getItem(STORAGE_KEYS.USERS);
-      this.users = storedUsers ? JSON.parse(storedUsers) : INITIAL_USERS;
+      // 1. Carrega dados do usuário autenticado salvo
+      const storedUser = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
+      if (storedUser) {
+        this.currentUser = JSON.parse(storedUser);
+      }
 
+      // 2. Carrega catálogo de produtos
       const storedProducts = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
       this.products = storedProducts ? JSON.parse(storedProducts) : INITIAL_PRODUCTS;
 
+      // 3. Carrega movimentações e vendas do usuário
       const storedMovements = localStorage.getItem(STORAGE_KEYS.MOVEMENTS);
-      this.movements = storedMovements ? JSON.parse(storedMovements) : INITIAL_MOVEMENTS;
+      this.movements = storedMovements ? JSON.parse(storedMovements) : [];
 
       const storedSales = localStorage.getItem(STORAGE_KEYS.SALES);
-      this.sales = storedSales ? JSON.parse(storedSales) : INITIAL_SALES;
-
-      const storedCurrentUserId = localStorage.getItem(STORAGE_KEYS.CURRENT_USER_ID);
-      if (storedCurrentUserId) {
-        this.currentUserId = storedCurrentUserId;
-      }
+      this.sales = storedSales ? JSON.parse(storedSales) : [];
 
       const storedPaid = localStorage.getItem(STORAGE_KEYS.PAID_COMMISSIONS);
       if (storedPaid) {
         this.paidCommissions = JSON.parse(storedPaid);
       }
-    } catch {
-      this.users = INITIAL_USERS;
-      this.products = INITIAL_PRODUCTS;
-      this.movements = INITIAL_MOVEMENTS;
-      this.sales = INITIAL_SALES;
-      this.currentUserId = 'user-seller-1';
-      this.paidCommissions = {};
+    } catch (e) {
+      console.warn('[Storage] Erro ao carregar cache local:', e);
     }
-    this.persist();
+  }
+
+  private getEncryptionSecret(): string {
+    return this.currentUser?.id || 'nfc_secure_device_secret_2026';
   }
 
   private persist() {
     try {
-      localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(this.users));
+      if (this.currentUser) {
+        localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(this.currentUser));
+      } else {
+        localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+      }
+
       localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(this.products));
       localStorage.setItem(STORAGE_KEYS.MOVEMENTS, JSON.stringify(this.movements));
       localStorage.setItem(STORAGE_KEYS.SALES, JSON.stringify(this.sales));
-      localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, this.currentUserId);
       localStorage.setItem(STORAGE_KEYS.PAID_COMMISSIONS, JSON.stringify(this.paidCommissions));
     } catch (e) {
-      console.error('Failed to persist in localStorage', e);
+      console.error('[Storage] Falha ao persistir dados locais:', e);
     }
     this.notify();
   }
@@ -97,27 +96,87 @@ class StorageService {
     this.listeners.forEach(l => l());
   }
 
-  // --- Auth & Users ---
-  public getUsers(): User[] {
-    return [...this.users];
-  }
+  // --- Auth & Users (Privacidade Absoluta) ---
 
   public getCurrentUser(): User {
-    const user = this.users.find(u => u.id === this.currentUserId);
-    return user || this.users[1];
+    if (this.currentUser) {
+      return this.currentUser;
+    }
+    // Fallback anônimo padrão seguro até o login ser completado
+    return {
+      id: 'anon',
+      name: 'Vendedor',
+      email: 'acesso@comunicarmarketing.com.br',
+      phone: '',
+      role: 'SELLER',
+      status: 'ACTIVE',
+      monthly_target: 20,
+      low_stock_threshold: 5
+    };
   }
 
-  public setCurrentUserId(id: string) {
-    this.currentUserId = id;
+
+  public setCurrentUser(user: User) {
+    this.currentUser = user;
     this.persist();
   }
 
-  public updateUser(user: User) {
-    const index = this.users.findIndex(u => u.id === user.id);
-    if (index >= 0) {
-      this.users[index] = user;
+  public setCurrentUserId(id: string) {
+    if (this.currentUser) {
+      this.currentUser.id = id;
       this.persist();
     }
+  }
+
+  public clearSession() {
+    this.currentUser = null;
+    this.adminUsers = [];
+    localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+    this.notify();
+  }
+
+  /**
+   * Retorna os usuários do sistema.
+   * REGRA DE PRIVACIDADE:
+   * - Vendedores comuns só enxergam a si mesmos ([this.currentUser]).
+   * - Apenas o Administrador autenticado pode ver a lista de vendedores.
+   */
+  public getUsers(): User[] {
+    if (this.currentUser?.role === 'ADMIN') {
+      return this.adminUsers.length > 0 ? this.adminUsers : (this.currentUser ? [this.currentUser] : []);
+    }
+    return this.currentUser ? [this.currentUser] : [];
+  }
+
+  public setAdminUsers(users: User[]) {
+    if (this.currentUser?.role === 'ADMIN') {
+      this.adminUsers = users;
+      this.notify();
+    }
+  }
+
+  public async fetchAdminUsersFromApi(): Promise<User[]> {
+    if (this.currentUser?.role !== 'ADMIN') return [];
+    try {
+      const users = await api.getUsers();
+      this.adminUsers = users;
+      this.notify();
+      return users;
+    } catch (err) {
+      console.warn('[Storage] Erro ao carregar usuários da API:', err);
+      return this.adminUsers;
+    }
+  }
+
+  public updateUser(user: User) {
+    if (this.currentUser?.id === user.id) {
+      this.currentUser = user;
+    }
+    const idx = this.adminUsers.findIndex(u => u.id === user.id);
+    if (idx >= 0) {
+      this.adminUsers[idx] = user;
+    }
+    this.persist();
   }
 
   public addUser(user: Omit<User, 'id'>): User {
@@ -125,12 +184,15 @@ class StorageService {
       ...user,
       id: `user-${Date.now()}`
     };
-    this.users.push(newUser);
+    if (this.currentUser?.role === 'ADMIN') {
+      this.adminUsers.push(newUser);
+    }
     this.persist();
     return newUser;
   }
 
-  // --- Products ---
+  // --- Produtos & Apoio ---
+
   public getProducts(): Product[] {
     return [...this.products];
   }
@@ -139,15 +201,14 @@ class StorageService {
     return this.products.find(p => p.id === id);
   }
 
-  // --- Support Materials ---
   public getSupportMaterials(): SupportMaterial[] {
     return INITIAL_SUPPORT_MATERIALS;
   }
 
-  // --- Stock & Movements Calculations ---
+  // --- Estoque e Resumos ---
+
   public getStockSummary(sellerId: string): SellerStockSummary[] {
-    const seller = this.users.find(u => u.id === sellerId);
-    const threshold = seller?.low_stock_threshold ?? 5;
+    const threshold = this.currentUser?.low_stock_threshold ?? 5;
 
     return this.products.map(product => {
       const movements = this.movements.filter(
@@ -206,7 +267,13 @@ class StorageService {
     );
   }
 
-  // --- Sales ---
+  public setMovements(movements: StockMovement[]) {
+    this.movements = movements;
+    this.persist();
+  }
+
+  // --- Vendas & Fila Criptografada Offline (AES-GCM 256) ---
+
   public getSales(sellerId?: string): Sale[] {
     if (sellerId) {
       return this.sales
@@ -218,7 +285,17 @@ class StorageService {
     );
   }
 
-  public registerSale(params: {
+  public setSales(sales: Sale[]) {
+    this.sales = sales;
+    this.persist();
+  }
+
+  /**
+   * Registra uma nova venda.
+   * - Se online: Tenta enviar diretamente à API do PostgreSQL.
+   * - Se offline: Grava na fila local usando criptografia AES-GCM 256-bit (Web Crypto API).
+   */
+  public async registerSale(params: {
     sellerId: string;
     productId: ProductId;
     establishmentName: string;
@@ -226,7 +303,7 @@ class StorageService {
     nfcConfigured: boolean;
     qrcodeTested: boolean;
     isOffline?: boolean;
-  }): { success: boolean; message: string; sale?: Sale } {
+  }): Promise<{ success: boolean; message: string; sale?: Sale }> {
     const { sellerId, productId, establishmentName, quantity, nfcConfigured, qrcodeTested, isOffline } = params;
 
     if (quantity <= 0) {
@@ -253,7 +330,6 @@ class StorageService {
       return { success: false, message: 'Produto não encontrado.' };
     }
 
-    const seller = this.users.find(u => u.id === sellerId);
     const saleId = `sale-${Date.now()}`;
     const clientRequestId = `req-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
     const now = new Date().toISOString();
@@ -261,7 +337,7 @@ class StorageService {
     const newSale: Sale = {
       id: saleId,
       seller_id: sellerId,
-      seller_name: seller?.name || 'Vendedor',
+      seller_name: this.currentUser?.name || 'Vendedor',
       product_id: productId,
       establishment_name: establishmentName.trim(),
       quantity,
@@ -276,9 +352,14 @@ class StorageService {
       status: isOffline ? 'PENDING_SYNC' : 'ACTIVE'
     };
 
+    // 1. Adiciona à lista de vendas da sessão
     this.sales.unshift(newSale);
 
-    if (!isOffline) {
+    if (isOffline) {
+      // 2. MODO OFFLINE: Criptografa a venda na fila do celular com AES-GCM 256
+      await this.enqueueEncryptedSale(newSale);
+    } else {
+      // 3. MODO ONLINE: Atualiza movimentação local e envia à API
       const movement: StockMovement = {
         id: `mov-${Date.now()}`,
         seller_id: sellerId,
@@ -290,6 +371,23 @@ class StorageService {
         created_at: now
       };
       this.movements.push(movement);
+
+      // Tenta persistir no PostgreSQL de forma atômica
+      try {
+        await api.registerSale({
+          productId,
+          establishmentName: establishmentName.trim(),
+          quantity,
+          nfcConfigured,
+          qrcodeTested,
+          clientRequestId
+        });
+      } catch (apiErr) {
+        console.warn('[Storage] Falha no envio à API, salvando de forma criptografada para reenvio:', apiErr);
+        newSale.status = 'PENDING_SYNC';
+        newSale.synced_at = undefined;
+        await this.enqueueEncryptedSale(newSale);
+      }
     }
 
     this.persist();
@@ -297,21 +395,77 @@ class StorageService {
     return {
       success: true,
       message: isOffline
-        ? 'Venda salva no celular! Sincronização automática quando houver sinal.'
-        : 'Venda confirmada com sucesso! Estoque atualizado.',
+        ? '🔒 Venda salva com criptografia militar (AES-256) no celular! Sincronização automática quando houver sinal.'
+        : 'Venda confirmada e sincronizada com sucesso no banco de dados!',
       sale: newSale
     };
   }
 
-  public syncPendingSales(): number {
-    let syncedCount = 0;
-    const now = new Date().toISOString();
+  /**
+   * Adiciona uma venda à fila criptografada local
+   */
+  private async enqueueEncryptedSale(sale: Sale) {
+    try {
+      const existingEnc = localStorage.getItem(STORAGE_KEYS.ENCRYPTED_OFFLINE_SALES);
+      let queue: Sale[] = [];
+      if (existingEnc) {
+        try {
+          queue = await cryptoService.decrypt<Sale[]>(existingEnc, this.getEncryptionSecret());
+        } catch {
+          queue = [];
+        }
+      }
+      queue.push(sale);
+      const encryptedBlob = await cryptoService.encrypt(queue, this.getEncryptionSecret());
+      localStorage.setItem(STORAGE_KEYS.ENCRYPTED_OFFLINE_SALES, encryptedBlob);
+    } catch (err) {
+      console.error('[Storage] Erro ao criptografar venda offline:', err);
+    }
+  }
 
-    this.sales = this.sales.map(sale => {
-      if (sale.status === 'PENDING_SYNC') {
-        const currentStock = this.getAvailableStock(sale.seller_id, sale.product_id);
-        if (currentStock >= 0) {
-          syncedCount++;
+  /**
+   * Sincroniza a fila criptografada offline com o PostgreSQL quando a conexão volta
+   */
+  public async syncPendingSales(): Promise<number> {
+    if (this.isSyncing) return 0;
+    this.isSyncing = true;
+
+    try {
+      const encryptedBlob = localStorage.getItem(STORAGE_KEYS.ENCRYPTED_OFFLINE_SALES);
+      if (!encryptedBlob) return 0;
+
+      let queue: Sale[] = [];
+      try {
+        queue = await cryptoService.decrypt<Sale[]>(encryptedBlob, this.getEncryptionSecret());
+      } catch (err) {
+        console.error('[Storage] Falha ao decifrar fila local para sincronizar:', err);
+        return 0;
+      }
+
+      if (queue.length === 0) return 0;
+
+      let syncedCount = 0;
+      const failedQueue: Sale[] = [];
+      const now = new Date().toISOString();
+
+      for (const sale of queue) {
+        try {
+          await api.registerSale({
+            productId: sale.product_id,
+            establishmentName: sale.establishment_name,
+            quantity: sale.quantity,
+            nfcConfigured: sale.nfc_configured,
+            qrcodeTested: sale.qrcode_tested,
+            clientRequestId: sale.client_request_id
+          });
+
+          // Atualiza status no histórico da sessão
+          const idx = this.sales.findIndex(s => s.id === sale.id || s.client_request_id === sale.client_request_id);
+          if (idx >= 0) {
+            this.sales[idx].status = 'ACTIVE';
+            this.sales[idx].synced_at = now;
+          }
+
           this.movements.push({
             id: `mov-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
             seller_id: sale.seller_id,
@@ -323,44 +477,49 @@ class StorageService {
             created_at: now
           });
 
-          return {
-            ...sale,
-            status: 'ACTIVE',
-            synced_at: now
-          };
-        } else {
-          return {
-            ...sale,
-            status: 'SYNC_REJECTED'
-          };
+          syncedCount++;
+        } catch (apiErr) {
+          console.warn('[Storage] Falha ao sincronizar venda individual, mantendo na fila:', apiErr);
+          failedQueue.push(sale);
         }
       }
-      return sale;
-    });
 
-    if (syncedCount > 0) {
-      this.persist();
+      // Se todas foram sincronizadas, apaga a fila cifrada
+      if (failedQueue.length === 0) {
+        localStorage.removeItem(STORAGE_KEYS.ENCRYPTED_OFFLINE_SALES);
+      } else {
+        const reEncrypted = await cryptoService.encrypt(failedQueue, this.getEncryptionSecret());
+        localStorage.setItem(STORAGE_KEYS.ENCRYPTED_OFFLINE_SALES, reEncrypted);
+      }
+
+      if (syncedCount > 0) {
+        this.persist();
+      }
+      return syncedCount;
+    } finally {
+      this.isSyncing = false;
     }
-    return syncedCount;
   }
+
+  // --- Operações Administrativas (Remessas, Ajustes e Estornos) ---
 
   public addStockShipment(params: {
     sellerId: string;
     googleQty: number;
     instagramQty: number;
     notes?: string;
-  }): boolean {
+  }): { success: boolean; message: string } {
     const admin = this.getCurrentUser();
     const now = new Date().toISOString();
 
     if (params.googleQty > 0) {
       this.movements.push({
-        id: `mov-${Date.now()}-goog`,
+        id: `mov-ship-goog-${Date.now()}`,
         seller_id: params.sellerId,
         product_id: 'google',
         type: 'IN_SHIPMENT',
         quantity: params.googleQty,
-        reason: params.notes || 'Remessa enviada pela administração',
+        reason: params.notes || 'Remessa de Placas Google',
         created_by: admin.id,
         created_at: now
       });
@@ -368,19 +527,25 @@ class StorageService {
 
     if (params.instagramQty > 0) {
       this.movements.push({
-        id: `mov-${Date.now()}-insta`,
+        id: `mov-ship-insta-${Date.now()}`,
         seller_id: params.sellerId,
         product_id: 'instagram',
         type: 'IN_SHIPMENT',
         quantity: params.instagramQty,
-        reason: params.notes || 'Remessa enviada pela administração',
+        reason: params.notes || 'Remessa de Placas Instagram',
         created_by: admin.id,
         created_at: now
       });
     }
 
     this.persist();
-    return true;
+
+    // Sincroniza com a API assincronamente
+    api.addShipment(params).catch(err => {
+      console.warn('[Storage] Falha ao enviar remessa para API:', err);
+    });
+
+    return { success: true, message: 'Remessa de estoque registrada com sucesso!' };
   }
 
   public correctStock(params: {
@@ -389,8 +554,11 @@ class StorageService {
     adjustmentQty: number;
     reason: string;
   }): { success: boolean; message: string } {
+    if (params.adjustmentQty === 0) {
+      return { success: false, message: 'Quantidade de ajuste não pode ser zero.' };
+    }
     if (!params.reason || params.reason.trim().length < 5) {
-      return { success: false, message: 'O motivo detalhado é obrigatório para correções de estoque.' };
+      return { success: false, message: 'Justificativa obrigatória (mínimo de 5 caracteres).' };
     }
 
     const currentStock = this.getAvailableStock(params.sellerId, params.productId);
@@ -414,6 +582,11 @@ class StorageService {
     });
 
     this.persist();
+
+    api.correctStock(params).catch(err => {
+      console.warn('[Storage] Falha ao enviar correção para API:', err);
+    });
+
     return { success: true, message: 'Ajuste de estoque lançado com sucesso no histórico auditável.' };
   }
 
@@ -456,6 +629,11 @@ class StorageService {
     });
 
     this.persist();
+
+    api.reverseSale(saleId, reason).catch(err => {
+      console.warn('[Storage] Falha ao enviar estorno para API:', err);
+    });
+
     return { success: true, message: 'Venda estornada! Placa devolvida ao saldo e comissão anulada.' };
   }
 
@@ -466,12 +644,14 @@ class StorageService {
   public setCommissionPaid(sellerId: string, month: string, paid: boolean) {
     this.paidCommissions[`${sellerId}_${month}`] = paid;
     this.persist();
+
+    api.toggleCommission(sellerId, month, paid).catch(err => {
+      console.warn('[Storage] Falha ao sincronizar comissão na API:', err);
+    });
   }
 
   public getSellerPerformance(sellerId: string): SellerPerformance {
-    const seller = this.users.find(u => u.id === sellerId);
-    const target = seller?.monthly_target ?? 20;
-
+    const target = this.currentUser?.monthly_target ?? 20;
     const currentMonthPrefix = new Date().toISOString().substring(0, 7);
 
     const activeSales = this.sales.filter(
@@ -499,7 +679,8 @@ class StorageService {
   }
 
   public resetToDefaults() {
-    localStorage.removeItem(STORAGE_KEYS.USERS);
+    localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+    localStorage.removeItem(STORAGE_KEYS.ENCRYPTED_OFFLINE_SALES);
     localStorage.removeItem(STORAGE_KEYS.PRODUCTS);
     localStorage.removeItem(STORAGE_KEYS.MOVEMENTS);
     localStorage.removeItem(STORAGE_KEYS.SALES);

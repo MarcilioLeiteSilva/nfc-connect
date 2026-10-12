@@ -51,7 +51,7 @@ export const SellerNewSale: React.FC<SellerNewSaleProps> = ({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
 
@@ -75,26 +75,31 @@ export const SellerNewSale: React.FC<SellerNewSaleProps> = ({
       return;
     }
 
-    const result = storageService.registerSale({
-      sellerId: currentUser.id,
-      productId,
-      establishmentName,
-      quantity,
-      nfcConfigured,
-      qrcodeTested,
-      isOffline: !isOnline
-    });
-
-    if (result.success) {
-      setSuccessResult({
-        message: result.message,
-        commission: totalCommission,
-        total: totalPrice
+    try {
+      const result = await storageService.registerSale({
+        sellerId: currentUser.id,
+        productId,
+        establishmentName,
+        quantity,
+        nfcConfigured,
+        qrcodeTested,
+        isOffline: !isOnline
       });
-    } else {
-      setErrorMessage(result.message);
+
+      if (result.success) {
+        setSuccessResult({
+          message: result.message,
+          commission: totalCommission,
+          total: totalPrice
+        });
+      } else {
+        setErrorMessage(result.message);
+      }
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Erro ao processar venda.');
     }
   };
+
 
   if (successResult) {
     return (

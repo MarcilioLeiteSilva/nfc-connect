@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { storageService } from '../../services/storageService';
 import type { Sale } from '../../types';
 import { InstagramIcon } from '../../components/InstagramIcon';
@@ -12,7 +12,12 @@ import {
 } from 'lucide-react';
 
 export const AdminCommissions: React.FC = () => {
+  useEffect(() => {
+    storageService.fetchAdminUsersFromApi();
+  }, []);
+
   const sellers = storageService.getUsers().filter(u => u.role === 'SELLER');
+
   const allSales = storageService.getSales();
 
   // Modal de Estorno

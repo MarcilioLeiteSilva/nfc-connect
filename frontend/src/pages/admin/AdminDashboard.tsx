@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { storageService } from '../../services/storageService';
 import {
   TrendingUp,
@@ -14,7 +14,12 @@ interface AdminDashboardProps {
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
+  useEffect(() => {
+    storageService.fetchAdminUsersFromApi();
+  }, []);
+
   const users = storageService.getUsers().filter(u => u.role === 'SELLER');
+
   const allSales = storageService.getSales();
   const activeSales = allSales.filter(s => s.status === 'ACTIVE');
 

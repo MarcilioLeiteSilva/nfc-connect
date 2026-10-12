@@ -20,30 +20,18 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     setLoading(true);
 
     try {
-      // 1. Tenta autenticar na API Real (PostgreSQL)
-      try {
-        const res = await api.login(email, password);
-        setAuthToken(res.token);
-        storageService.setCurrentUserId(res.user.id);
-        onLoginSuccess();
-        return;
-      } catch (apiErr: any) {
-        // Se a API estiver offline ou em simulação, tenta validar no armazenamento local
-        const users = storageService.getUsers();
-        const found = users.find(u => u.email.toLowerCase() === email.trim().toLowerCase());
-
-        if (found) {
-          storageService.setCurrentUserId(found.id);
-          onLoginSuccess();
-          return;
-        }
-
-        setError(apiErr.message || 'E-mail ou senha incorretos.');
-      }
+      // Autenticação 100% REAL no PostgreSQL via API com bcrypt e JWT
+      const res = await api.login(email.trim(), password);
+      setAuthToken(res.token);
+      storageService.setCurrentUser(res.user);
+      onLoginSuccess();
+    } catch (apiErr: any) {
+      setError(apiErr.message || 'Falha na autenticação: E-mail ou senha incorretos.');
     } finally {
       setLoading(false);
     }
   };
+
 
   return (
     <div

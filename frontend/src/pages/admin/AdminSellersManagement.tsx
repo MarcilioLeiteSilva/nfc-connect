@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { storageService } from '../../services/storageService';
 import type { User } from '../../types';
 import {
@@ -12,7 +12,12 @@ import {
 } from 'lucide-react';
 
 export const AdminSellersManagement: React.FC = () => {
+  useEffect(() => {
+    storageService.fetchAdminUsersFromApi();
+  }, []);
+
   const users = storageService.getUsers().filter(u => u.role === 'SELLER');
+
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);

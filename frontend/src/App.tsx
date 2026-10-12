@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { storageService } from './services/storageService';
-import { setAuthToken } from './services/api';
+import { setAuthToken, api } from './services/api';
+
 import { Header } from './components/Header';
 import { BottomNav } from './components/BottomNav';
 import { OfflineBanner } from './components/OfflineBanner';
@@ -44,11 +45,15 @@ export function App() {
 
   // Monitoramento de conexão de rede (Online / Offline)
   useEffect(() => {
-    const handleOnline = () => {
+    const handleOnline = async () => {
       setIsOnline(true);
-      const synced = storageService.syncPendingSales();
-      if (synced > 0) {
-        console.log(`[PWA] ${synced} venda(s) sincronizada(s) automaticamente com sucesso!`);
+      try {
+        const synced = await storageService.syncPendingSales();
+        if (synced > 0) {
+          console.log(`[PWA] ${synced} venda(s) criptografada(s) sincronizada(s) com o PostgreSQL com sucesso!`);
+        }
+      } catch (err) {
+        console.error('Erro na sincronização:', err);
       }
     };
 
@@ -59,11 +64,26 @@ export function App() {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
+    // Validação da sessão no PostgreSQL ao iniciar
+    if (isAuthenticated) {
+      api.getMe().then((res: any) => {
+        if (res.user) {
+
+          storageService.setCurrentUser(res.user);
+          if (res.user.role === 'ADMIN') {
+            storageService.fetchAdminUsersFromApi();
+          }
+        }
+      }).catch(() => {
+        handleLogout();
+      });
+    }
+
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, []);
+  }, [isAuthenticated]);
 
   const currentUser = storageService.getCurrentUser();
   const [sellerTab, setSellerTab] = useState('home');
@@ -73,9 +93,9 @@ export function App() {
     .getSales()
     .filter(s => s.status === 'PENDING_SYNC');
 
-  const handleManualSync = () => {
-    const synced = storageService.syncPendingSales();
-    alert(synced > 0 ? `${synced} venda(s) sincronizada(s)!` : 'Nenhuma venda pendente para sincronizar.');
+  const handleManualSync = async () => {
+    const synced = await storageService.syncPendingSales();
+    alert(synced > 0 ? `${synced} venda(s) sincronizada(s) com o banco!` : 'Nenhuma venda pendente para sincronizar.');
   };
 
   const handleLoginSuccess = () => {
@@ -87,7 +107,9 @@ export function App() {
     setIsAuthenticated(false);
     localStorage.removeItem('nfc_is_authenticated');
     setAuthToken(null);
+    storageService.clearSession();
   };
+
 
   const currentTab = currentUser.role === 'ADMIN' ? adminTab : sellerTab;
   const setCurrentTab = (tab: string) => {

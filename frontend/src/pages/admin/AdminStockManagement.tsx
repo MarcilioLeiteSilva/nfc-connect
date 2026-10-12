@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { storageService } from '../../services/storageService';
 import type { ProductId } from '../../types';
 import {
@@ -9,7 +9,12 @@ import {
 } from 'lucide-react';
 
 export const AdminStockManagement: React.FC = () => {
+  useEffect(() => {
+    storageService.fetchAdminUsersFromApi();
+  }, []);
+
   const sellers = storageService.getUsers().filter(u => u.role === 'SELLER');
+
   const movements = storageService.getMovements();
 
   // Estados do Modal de Remessa
