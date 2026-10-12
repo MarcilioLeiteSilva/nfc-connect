@@ -512,17 +512,18 @@ app.post('/api/sales/:id/reverse', authMiddleware, requireAdmin, async (req: Aut
 app.get('/api/users', authMiddleware, requireAdmin, async (_req: AuthRequest, res: Response) => {
   try {
     const result = await pool.query(
-      'SELECT id, name, email, phone, role, status, monthly_target, low_stock_threshold FROM users ORDER BY name'
+      'SELECT id, name, email, phone, role, status, monthly_target, low_stock_threshold, pix_key, pix_type FROM users ORDER BY name'
     );
     res.json({ users: result.rows });
-  } catch (err) {
-    res.status(500).json({ error: 'Erro ao buscar usuários' });
+  } catch (err: any) {
+    console.error('Erro ao buscar usuários:', err);
+    res.status(500).json({ error: err.message || 'Erro ao buscar usuários' });
   }
 });
 
 // POST /api/users
 app.post('/api/users', authMiddleware, requireAdmin, async (req: AuthRequest, res: Response) => {
-  const { name, email, phone, monthly_target, low_stock_threshold } = req.body;
+  const { name, email, phone, monthly_target, low_stock_threshold, pix_key, pix_type } = req.body;
   if (!name || !email) {
     res.status(400).json({ error: 'Nome e e-mail são obrigatórios' });
     return;
@@ -533,9 +534,9 @@ app.post('/api/users', authMiddleware, requireAdmin, async (req: AuthRequest, re
     const userId = `user-${Date.now()}`;
 
     await pool.query(
-      `INSERT INTO users (id, name, email, password_hash, phone, role, status, monthly_target, low_stock_threshold, must_change_password)
-       VALUES ($1, $2, $3, $4, $5, 'SELLER', 'ACTIVE', $6, $7, true)`,
-      [userId, name, email.trim(), defaultPassHash, phone, monthly_target || 20, low_stock_threshold || 5]
+      `INSERT INTO users (id, name, email, password_hash, phone, role, status, monthly_target, low_stock_threshold, pix_key, pix_type, must_change_password)
+       VALUES ($1, $2, $3, $4, $5, 'SELLER', 'ACTIVE', $6, $7, $8, $9, true)`,
+      [userId, name, email.trim(), defaultPassHash, phone || null, monthly_target || 20, low_stock_threshold || 5, pix_key || null, pix_type || 'CPF']
     );
 
     res.json({ success: true, message: 'Vendedor cadastrado com senha padrão: vendedor123' });
@@ -544,25 +545,45 @@ app.post('/api/users', authMiddleware, requireAdmin, async (req: AuthRequest, re
       res.status(400).json({ error: 'Este e-mail já está cadastrado no sistema' });
       return;
     }
-    res.status(500).json({ error: 'Erro ao cadastrar vendedor' });
+    console.error('Erro ao cadastrar vendedor:', err);
+    res.status(500).json({ error: err.message || 'Erro ao cadastrar vendedor' });
   }
 });
 
 // PUT /api/users/:id
 app.put('/api/users/:id', authMiddleware, requireAdmin, async (req: AuthRequest, res: Response) => {
   const userId = req.params.id;
-  const { name, email, phone, monthly_target, low_stock_threshold, status } = req.body;
+  const { name, email, phone, monthly_target, low_stock_threshold, status, pix_key, pix_type } = req.body;
 
   try {
     await pool.query(
       `UPDATE users 
-       SET name = $1, email = $2, phone = $3, monthly_target = $4, low_stock_threshold = $5, status = $6, updated_at = NOW() 
-       WHERE id = $7`,
-      [name, email, phone, monthly_target, low_stock_threshold, status, userId]
+       SET name = COALESCE($1, name),
+           email = COALESCE($2, email),
+           phone = $3,
+           monthly_target = COALESCE($4, monthly_target),
+           low_stock_threshold = COALESCE($5, low_stock_threshold),
+           status = COALESCE($6, status, 'ACTIVE'),
+           pix_key = $7,
+           pix_type = $8,
+           updated_at = NOW() 
+       WHERE id = $9`,
+      [
+        name,
+        email ? email.trim() : null,
+        phone || null,
+        monthly_target ? parseInt(monthly_target, 10) : null,
+        low_stock_threshold ? parseInt(low_stock_threshold, 10) : null,
+        status || 'ACTIVE',
+        pix_key || null,
+        pix_type || 'CPF',
+        userId
+      ]
     );
     res.json({ success: true, message: 'Dados atualizados com sucesso' });
-  } catch (err) {
-    res.status(500).json({ error: 'Erro ao atualizar vendedor' });
+  } catch (err: any) {
+    console.error('Erro ao atualizar vendedor:', err);
+    res.status(500).json({ error: err.message || 'Erro ao atualizar vendedor' });
   }
 });
 

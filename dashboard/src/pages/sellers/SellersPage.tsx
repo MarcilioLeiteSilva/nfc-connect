@@ -41,6 +41,7 @@ export const SellersPage: React.FC<SellersPageProps> = ({
     low_stock_threshold: number;
     pix_key: string;
     pix_type: 'CPF' | 'CNPJ' | 'EMAIL' | 'PHONE' | 'RANDOM';
+    status: 'ACTIVE' | 'INACTIVE';
   }>({
     name: '',
     email: '',
@@ -48,7 +49,8 @@ export const SellersPage: React.FC<SellersPageProps> = ({
     monthly_target: 20,
     low_stock_threshold: 5,
     pix_key: '',
-    pix_type: 'CPF'
+    pix_type: 'CPF',
+    status: 'ACTIVE'
   });
 
   const sellers = users.filter(u => u.role === 'SELLER');
@@ -67,7 +69,8 @@ export const SellersPage: React.FC<SellersPageProps> = ({
       monthly_target: 20,
       low_stock_threshold: 5,
       pix_key: '',
-      pix_type: 'CPF'
+      pix_type: 'CPF',
+      status: 'ACTIVE'
     });
     setIsModalOpen(true);
   };
@@ -81,7 +84,8 @@ export const SellersPage: React.FC<SellersPageProps> = ({
       monthly_target: user.monthly_target || 20,
       low_stock_threshold: user.low_stock_threshold || 5,
       pix_key: user.pix_key || '',
-      pix_type: user.pix_type || 'CPF'
+      pix_type: user.pix_type || 'CPF',
+      status: (user.status as any) || 'ACTIVE'
     });
     setIsModalOpen(true);
   };
@@ -377,7 +381,7 @@ export const SellersPage: React.FC<SellersPageProps> = ({
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: editingUser ? '1fr 1fr 1fr' : '1fr 1fr', gap: 12 }}>
                 <div className="form-group">
                   <label className="form-label">Meta Mensal (Placas)</label>
                   <input
@@ -399,6 +403,20 @@ export const SellersPage: React.FC<SellersPageProps> = ({
                     className="form-input"
                   />
                 </div>
+
+                {editingUser && (
+                  <div className="form-group">
+                    <label className="form-label">Status da Conta</label>
+                    <select
+                      value={formData.status}
+                      onChange={e => setFormData({ ...formData, status: e.target.value as any })}
+                      className="form-select"
+                    >
+                      <option value="ACTIVE">Ativo</option>
+                      <option value="INACTIVE">Inativo (Bloqueado)</option>
+                    </select>
+                  </div>
+                )}
               </div>
 
               {!editingUser && (

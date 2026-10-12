@@ -252,6 +252,10 @@ export async function initDatabase() {
         paid_by VARCHAR(64) REFERENCES users(id),
         UNIQUE (seller_id, reference_month)
       );
+
+      -- Migrações incrementais de esquema
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS pix_key VARCHAR(100);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS pix_type VARCHAR(20) DEFAULT 'CPF';
     `);
 
     // Inserir Catálogo de Produtos padrão se vazio
