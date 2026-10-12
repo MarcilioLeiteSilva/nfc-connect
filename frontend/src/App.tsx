@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { storageService } from './services/storageService';
+import { setAuthToken } from './services/api';
 import { Header } from './components/Header';
 import { BottomNav } from './components/BottomNav';
 import { OfflineBanner } from './components/OfflineBanner';
 import { PwaInstallModal } from './components/PwaInstallModal';
 import { SplashScreen } from './components/SplashScreen';
+import { LoginPage } from './pages/auth/LoginPage';
 
 // Páginas do Vendedor
 import { SellerHome } from './pages/seller/SellerHome';
@@ -26,6 +28,11 @@ export function App() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [showPwaModal, setShowPwaModal] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
+
+  // Estado de Login (persiste no localStorage para não pedir senha a cada reload no celular)
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    return localStorage.getItem('nfc_is_authenticated') === 'true';
+  });
 
   // Assinatura ao Storage para re-renderizar quando houver qualquer alteração de dados
   useEffect(() => {
@@ -71,6 +78,17 @@ export function App() {
     alert(synced > 0 ? `${synced} venda(s) sincronizada(s)!` : 'Nenhuma venda pendente para sincronizar.');
   };
 
+  const handleLoginSuccess = () => {
+    setIsAuthenticated(true);
+    localStorage.setItem('nfc_is_authenticated', 'true');
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    localStorage.removeItem('nfc_is_authenticated');
+    setAuthToken(null);
+  };
+
   const currentTab = currentUser.role === 'ADMIN' ? adminTab : sellerTab;
   const setCurrentTab = (tab: string) => {
     if (currentUser.role === 'ADMIN') {
@@ -80,16 +98,23 @@ export function App() {
     }
   };
 
+  // Se a tela splash estiver ativa, exibe primeiro
+  if (showSplash) {
+    return (
+      <SplashScreen
+        durationMs={2500}
+        onFinish={() => setShowSplash(false)}
+      />
+    );
+  }
+
+  // Se não estiver logado, exibe a tela de login oficial
+  if (!isAuthenticated) {
+    return <LoginPage onLoginSuccess={handleLoginSuccess} />;
+  }
+
   return (
     <div className="app-wrapper">
-      {/* Tela Splash Oficial Comunicar Marketing */}
-      {showSplash && (
-        <SplashScreen
-          durationMs={2500}
-          onFinish={() => setShowSplash(false)}
-        />
-      )}
-
       <div className={`app-container ${currentUser.role === 'ADMIN' ? 'admin-expanded' : ''}`}>
         {/* Cabeçalho */}
         <Header
@@ -97,6 +122,7 @@ export function App() {
           isOnline={isOnline}
           onOpenPwaModal={() => setShowPwaModal(true)}
           onShowSplash={() => setShowSplash(true)}
+          onLogout={handleLogout}
           pendingSyncCount={pendingSales.length}
         />
 

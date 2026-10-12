@@ -9,7 +9,8 @@ import {
   Smartphone,
   ChevronDown,
   ShieldCheck,
-  RotateCcw
+  RotateCcw,
+  LogOut
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -17,6 +18,7 @@ interface HeaderProps {
   isOnline: boolean;
   onOpenPwaModal: () => void;
   onShowSplash: () => void;
+  onLogout: () => void;
   pendingSyncCount: number;
 }
 
@@ -25,6 +27,7 @@ export const Header: React.FC<HeaderProps> = ({
   isOnline,
   onOpenPwaModal,
   onShowSplash,
+  onLogout,
   pendingSyncCount
 }) => {
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -159,7 +162,10 @@ export const Header: React.FC<HeaderProps> = ({
           <div style={{ height: 1, background: 'var(--border-subtle)', margin: '4px 0' }} />
 
           <button
-            onClick={onShowSplash}
+            onClick={() => {
+              setShowUserMenu(false);
+              onShowSplash();
+            }}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -187,6 +193,25 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <RotateCcw size={13} />
             <span>Restaurar Dados Padrão</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setShowUserMenu(false);
+              onLogout();
+            }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '8px 10px',
+              borderRadius: 8,
+              fontSize: 12,
+              color: '#f87171'
+            }}
+          >
+            <LogOut size={13} />
+            <span>Sair da Conta (Logout)</span>
           </button>
         </div>
       )}
