@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { ComunicarLogo } from '../../components/ComunicarLogo';
 import { api, setAuthToken } from '../../services/api';
 import { storageService } from '../../services/storageService';
-import { Lock, Mail, ArrowRight, ShieldCheck, UserCheck, AlertCircle } from 'lucide-react';
+import { Lock, Mail, ArrowRight, AlertCircle } from 'lucide-react';
 
 interface LoginPageProps {
   onLoginSuccess: () => void;
@@ -42,16 +42,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       }
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleQuickFill = (type: 'admin' | 'seller') => {
-    if (type === 'admin') {
-      setEmail('admin@comunicarmarketing.com.br');
-      setPassword('Cascavel@#01');
-    } else {
-      setEmail('joao.silva@comunicarmarketing.com.br');
-      setPassword('vendedor123');
     }
   };
 
@@ -142,36 +132,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             <span>{loading ? 'Validando acesso...' : 'Entrar no Sistema'}</span>
             <ArrowRight size={18} />
           </button>
-
-          {/* Atalhos de Preenchimento Rápido para Demonstração */}
-          <div style={{ marginTop: 12, paddingTop: 14, borderTop: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <span style={{ fontSize: 11, color: 'var(--text-dim)', textAlign: 'center', fontWeight: 600 }}>
-              PREENCHIMENTO RÁPIDO PARA TESTE:
-            </span>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() => handleQuickFill('admin')}
-                style={{ fontSize: 11, padding: '8px 6px', display: 'flex', alignItems: 'center', gap: 4 }}
-              >
-                <ShieldCheck size={13} color="#fbbf24" />
-                <span>Admin Gestor</span>
-              </button>
-
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() => handleQuickFill('seller')}
-                style={{ fontSize: 11, padding: '8px 6px', display: 'flex', alignItems: 'center', gap: 4 }}
-              >
-                <UserCheck size={13} color="#34d399" />
-                <span>Vendedor João</span>
-              </button>
-            </div>
-          </div>
         </form>
+
 
         <p style={{ textAlign: 'center', fontSize: 11, color: 'var(--text-dim)', marginTop: 24 }}>
           "Conecte seu negócio ao cliente com um toque." • Comunicar Marketing © 2026
