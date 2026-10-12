@@ -15,14 +15,21 @@ function parseDbConfig() {
   const match = rawUrl.match(/^(?:postgres(?:ql)?:\/\/)([^:]+):(.+)@([^@/:]+)(?::(\d+))?\/([^?]+)/);
   if (match) {
     const [, user, pass, host, port, database] = match;
+    let finalPass = pass.trim();
+    try {
+      finalPass = decodeURIComponent(finalPass);
+    } catch {
+      // se não estiver encodado, mantém a senha original
+    }
     return {
       host: host.trim(),
       port: port ? parseInt(port, 10) : 5432,
       user: user.trim(),
-      password: pass.trim(),
+      password: finalPass,
       database: database.trim()
     };
   }
+
 
   // Endereço oficial confirmado do EasyPanel
   return {
