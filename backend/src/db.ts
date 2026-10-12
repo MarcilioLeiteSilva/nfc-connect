@@ -7,67 +7,98 @@ dotenv.config();
 
 const { Pool } = pg;
 
-// Conexão padrão utilizando a rede interna do EasyPanel
-const defaultUrl = 'postgresql://postgres:Cascavel%40%2301@postgres:5432/nfc-connect';
-let activeConnectionString = process.env.DATABASE_URL || defaultUrl;
+// Configuração do PostgreSQL para a rede interna do EasyPanel
+function parseDbConfig() {
+  const rawUrl = process.env.DATABASE_URL || '';
+  
+  // Extrai componentes mesmo se a senha contiver caracteres especiais como @ ou #
+  const match = rawUrl.match(/^(?:postgres(?:ql)?:\/\/)([^:]+):(.+)@([^@/:]+)(?::(\d+))?\/([^?]+)/);
+  if (match) {
+    const [, user, pass, host, port, database] = match;
+    return {
+      host: host.trim(),
+      port: port ? parseInt(port, 10) : 5432,
+      user: user.trim(),
+      password: pass.trim(),
+      database: database.trim()
+    };
+  }
+
+  // Endereço oficial confirmado do EasyPanel
+  return {
+    host: 'nfc-connect_nfc-postgres',
+    port: 5432,
+    user: 'postgres',
+    password: 'Cascavel@#01',
+    database: 'nfc-connect'
+  };
+}
+
+let dbConfig = parseDbConfig();
 
 export let pool = new Pool({
-  connectionString: activeConnectionString,
-  ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false
+  host: dbConfig.host,
+  port: dbConfig.port,
+  user: dbConfig.user,
+  password: dbConfig.password,
+  database: dbConfig.database,
+  ssl: false
 });
 
 export let isDatabaseInitialized = false;
 
 /**
  * Tenta resolver automaticamente o hostname correto do PostgreSQL na rede Docker
- * (ex: 'Postgres' com maiúscula, 'postgres', 'database', etc.)
  */
 async function autoDetectHost(): Promise<boolean> {
-  try {
-    const parsed = new URL(activeConnectionString);
-    const candidateHosts = [
-      parsed.hostname,
-      'Postgres',
-      'postgres',
-      'nfc-connect-postgres',
-      'nfc-connect_postgres',
-      'database',
-      'db'
-    ];
+  const candidateHosts = [
+    dbConfig.host,
+    'nfc-connect_nfc-postgres',
+    'nfc-postgres',
+    'Postgres',
+    'postgres',
+    'database',
+    'db'
+  ];
 
-    for (const host of candidateHosts) {
-      try {
-        await dns.lookup(host);
-        console.log(`[DB] ✅ Host do PostgreSQL encontrado na rede interna: "${host}"`);
-        if (parsed.hostname !== host) {
-          parsed.hostname = host;
-          activeConnectionString = parsed.toString();
-          await pool.end().catch(() => {});
-          pool = new Pool({
-            connectionString: activeConnectionString,
-            ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false
-          });
-        }
-        return true;
-      } catch {
-        // Testa o próximo candidato
+  for (const host of candidateHosts) {
+    try {
+      await dns.lookup(host);
+      console.log(`[DB] ✅ Host do PostgreSQL encontrado na rede interna: "${host}"`);
+      if (dbConfig.host !== host) {
+        dbConfig.host = host;
+        await pool.end().catch(() => {});
+        pool = new Pool({
+          host: dbConfig.host,
+          port: dbConfig.port,
+          user: dbConfig.user,
+          password: dbConfig.password,
+          database: dbConfig.database,
+          ssl: false
+        });
       }
+      return true;
+    } catch {
+      // Continua testando
     }
-  } catch (err) {
-    console.warn('[DB] Erro ao analisar URL:', err);
   }
   return false;
 }
+
 
 /**
  * Cria o banco 'nfc-connect' no PostgreSQL caso ainda não exista no servidor
  */
 async function ensureDatabaseExists() {
-  const adminUrl = activeConnectionString.replace(/\/nfc-connect(\?.*)?$/, '/postgres$1');
   const adminPool = new Pool({
-    connectionString: adminUrl,
-    ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false
+    host: dbConfig.host,
+    port: dbConfig.port,
+    user: dbConfig.user,
+    password: dbConfig.password,
+    database: 'postgres',
+    ssl: false
   });
+
 
   try {
     const client = await adminPool.connect();
