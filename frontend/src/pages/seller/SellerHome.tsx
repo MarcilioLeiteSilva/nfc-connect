@@ -18,6 +18,10 @@ interface SellerHomeProps {
 }
 
 export const SellerHome: React.FC<SellerHomeProps> = ({ currentUser, onNavigate }) => {
+  React.useEffect(() => {
+    storageService.syncSellerDataFromApi();
+  }, [currentUser.id]);
+
   const performance = storageService.getSellerPerformance(currentUser.id);
   const stockSummary = storageService.getStockSummary(currentUser.id);
 

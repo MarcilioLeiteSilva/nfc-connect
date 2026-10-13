@@ -12,6 +12,7 @@ export interface User {
   low_stock_threshold: number;
   pix_key?: string;
   pix_type?: 'CPF' | 'CNPJ' | 'EMAIL' | 'PHONE' | 'RANDOM';
+  pix_proof_photo?: string | null;
   created_at?: string;
 }
 
@@ -47,6 +48,7 @@ export interface Sale {
   cancelled_by?: string;
   cancelled_at?: string;
   cancel_reason?: string;
+  installation_photo?: string;
 }
 
 export interface StockMovement {
@@ -83,6 +85,7 @@ export interface CommissionStatement {
   status: 'PENDING' | 'PAID';
   paid_at?: string;
   paid_by?: string;
+  payment_receipt?: string;
 }
 
 export interface OverviewMetrics {

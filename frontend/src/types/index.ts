@@ -11,6 +11,9 @@ export interface User {
   monthly_target: number; // default 20
   low_stock_threshold: number; // default 5
   avatar_url?: string;
+  pix_key?: string;
+  pix_type?: 'CPF' | 'CNPJ' | 'EMAIL' | 'PHONE' | 'RANDOM';
+  pix_proof_photo?: string;
 }
 
 export type ProductId = 'google' | 'instagram';
@@ -74,6 +77,7 @@ export interface Sale {
   cancelled_by?: string;
   cancelled_at?: string;
   cancel_reason?: string;
+  installation_photo?: string;
 }
 
 export interface SupportMaterial {

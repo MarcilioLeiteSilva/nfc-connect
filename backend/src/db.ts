@@ -256,6 +256,9 @@ export async function initDatabase() {
       -- Migrações incrementais de esquema
       ALTER TABLE users ADD COLUMN IF NOT EXISTS pix_key VARCHAR(100);
       ALTER TABLE users ADD COLUMN IF NOT EXISTS pix_type VARCHAR(20) DEFAULT 'CPF';
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS pix_proof_photo TEXT;
+      ALTER TABLE sales ADD COLUMN IF NOT EXISTS installation_photo TEXT;
+      ALTER TABLE commission_statements ADD COLUMN IF NOT EXISTS payment_receipt TEXT;
     `);
 
     // Inserir Catálogo de Produtos padrão se vazio

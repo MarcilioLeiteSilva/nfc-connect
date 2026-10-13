@@ -15,6 +15,10 @@ interface SellerStockProps {
 }
 
 export const SellerStock: React.FC<SellerStockProps> = ({ currentUser }) => {
+  React.useEffect(() => {
+    storageService.syncSellerDataFromApi();
+  }, [currentUser.id]);
+
   const stockSummary = storageService.getStockSummary(currentUser.id);
   const movements = storageService.getMovements(currentUser.id);
 

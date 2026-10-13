@@ -52,6 +52,7 @@ export function App() {
         if (synced > 0) {
           console.log(`[PWA] ${synced} venda(s) criptografada(s) sincronizada(s) com o PostgreSQL com sucesso!`);
         }
+        await storageService.syncSellerDataFromApi();
       } catch (err) {
         console.error('Erro na sincronização:', err);
       }
@@ -72,6 +73,8 @@ export function App() {
           storageService.setCurrentUser(res.user);
           if (res.user.role === 'ADMIN') {
             storageService.fetchAdminUsersFromApi();
+          } else {
+            storageService.syncSellerDataFromApi();
           }
         }
       }).catch(() => {

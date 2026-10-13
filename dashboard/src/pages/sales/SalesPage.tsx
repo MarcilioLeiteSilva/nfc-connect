@@ -8,7 +8,9 @@ import {
   RotateCcw,
   CheckCircle,
   XCircle,
-  Calendar
+  Calendar,
+  Camera,
+  X
 } from 'lucide-react';
 
 interface SalesPageProps {
@@ -28,6 +30,7 @@ export const SalesPage: React.FC<SalesPageProps> = ({
   const [reversingSaleId, setReversingSaleId] = useState<string | null>(null);
   const [reverseReason, setReverseReason] = useState('');
   const [isSubmittingReverse, setIsSubmittingReverse] = useState(false);
+  const [previewSale, setPreviewSale] = useState<Sale | null>(null);
 
   // Mapeia nomes de vendedores
   const userMap = new Map(users.map(u => [u.id, u.name]));
@@ -164,8 +167,9 @@ export const SalesPage: React.FC<SalesPageProps> = ({
                 <th>Quantidade</th>
                 <th>Faturamento</th>
                 <th>Comissão</th>
+                <th>Foto Instalação</th>
                 <th>Status</th>
-                <th>Auditoria</th>
+                <th>Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -232,6 +236,30 @@ export const SalesPage: React.FC<SalesPageProps> = ({
                         <span style={{ fontWeight: 700, color: '#34d399' }}>
                           R$ {Number(sale.commission_amount).toFixed(2).replace('.', ',')}
                         </span>
+                      </td>
+                      <td>
+                        {sale.installation_photo ? (
+                          <button
+                            type="button"
+                            onClick={() => setPreviewSale(sale)}
+                            className="btn btn-secondary"
+                            style={{
+                              padding: '4px 8px',
+                              fontSize: 11,
+                              color: '#38bdf8',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 5,
+                              border: '1px solid rgba(56, 189, 248, 0.4)'
+                            }}
+                            title="Visualizar Foto da Instalação no Balcão"
+                          >
+                            <Camera size={13} />
+                            <span>Ver Foto</span>
+                          </button>
+                        ) : (
+                          <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>Sem foto</span>
+                        )}
                       </td>
                       <td>
                         <span className={`badge ${!isCancelled ? 'badge-success' : 'badge-danger'}`}>
@@ -314,6 +342,98 @@ export const SalesPage: React.FC<SalesPageProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Visualização de Foto da Instalação */}
+      {previewSale && (
+        <div className="modal-overlay" onClick={() => setPreviewSale(null)}>
+          <div
+            className="modal-card"
+            onClick={e => e.stopPropagation()}
+            style={{ maxWidth: 540, width: '92%' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Camera size={20} color="var(--primary-light)" />
+                <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: 'var(--text-main)' }}>
+                  Auditoria: Placa no Balcão
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewSale(null)}
+                style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div
+              style={{
+                borderRadius: 12,
+                overflow: 'hidden',
+                border: '1px solid var(--border-subtle)',
+                background: '#090d16',
+                textAlign: 'center',
+                boxShadow: '0 8px 24px rgba(0,0,0,0.5)'
+              }}
+            >
+              <img
+                src={previewSale.installation_photo}
+                alt="Foto da Instalação"
+                style={{ width: '100%', maxHeight: 400, objectFit: 'contain', display: 'block' }}
+              />
+            </div>
+
+            <div
+              style={{
+                marginTop: 14,
+                background: 'var(--bg-main)',
+                padding: 12,
+                borderRadius: 10,
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: 10,
+                fontSize: 12
+              }}
+            >
+              <div>
+                <span style={{ color: 'var(--text-dim)' }}>Estabelecimento Lojista:</span>
+                <strong style={{ display: 'block', color: 'var(--text-main)', fontSize: 13, marginTop: 2 }}>
+                  {previewSale.establishment_name}
+                </strong>
+              </div>
+              <div>
+                <span style={{ color: 'var(--text-dim)' }}>Vendedor Responsável:</span>
+                <strong style={{ display: 'block', color: 'var(--text-main)', fontSize: 13, marginTop: 2 }}>
+                  {userMap.get(previewSale.seller_id) || previewSale.seller_id}
+                </strong>
+              </div>
+              <div>
+                <span style={{ color: 'var(--text-dim)' }}>Produto Instalado:</span>
+                <strong style={{ display: 'block', color: 'var(--text-main)', marginTop: 2 }}>
+                  {previewSale.product_id === 'google' ? 'Placa Google Avaliações' : 'Placa Instagram Direct'} ({previewSale.quantity} un.)
+                </strong>
+              </div>
+              <div>
+                <span style={{ color: 'var(--text-dim)' }}>Data & Hora da Venda:</span>
+                <strong style={{ display: 'block', color: 'var(--text-main)', marginTop: 2 }}>
+                  {new Date(previewSale.sale_date).toLocaleString('pt-BR')}
+                </strong>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
+              <button
+                type="button"
+                onClick={() => setPreviewSale(null)}
+                className="btn btn-secondary"
+              >
+                Fechar Visualização
+              </button>
+            </div>
           </div>
         </div>
       )}

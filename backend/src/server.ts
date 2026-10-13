@@ -400,7 +400,8 @@ app.post('/api/sales', authMiddleware, async (req: AuthRequest, res: Response) =
     quantity,
     nfcConfigured,
     qrcodeTested,
-    clientRequestId
+    clientRequestId,
+    installationPhoto
   } = req.body;
 
   const sellerId = req.user!.id;
@@ -446,14 +447,14 @@ app.post('/api/sales', authMiddleware, async (req: AuthRequest, res: Response) =
     const totalPrice = quantity * unitPrice;
     const reqId = clientRequestId || `req-${Date.now()}`;
 
-    // 3. Insere Venda
+    // 3. Insere Venda com Foto de Instalação no Balcão
     await client.query(
       `INSERT INTO sales (
         id, seller_id, product_id, establishment_name, quantity,
         unit_price, total_price, commission_amount, nfc_configured, qrcode_tested,
-        client_request_id, status
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true, true, $9, 'ACTIVE')`,
-      [saleId, sellerId, productId, establishmentName, quantity, unitPrice, totalPrice, commissionAmount, reqId]
+        client_request_id, status, installation_photo
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true, true, $9, 'ACTIVE', $10)`,
+      [saleId, sellerId, productId, establishmentName, quantity, unitPrice, totalPrice, commissionAmount, reqId, installationPhoto || null]
     );
 
     // 4. Cria Saída de Estoque
@@ -545,7 +546,7 @@ app.post('/api/sales/:id/reverse', authMiddleware, requireAdmin, async (req: Aut
 app.get('/api/users', authMiddleware, requireAdmin, async (_req: AuthRequest, res: Response) => {
   try {
     const result = await pool.query(
-      'SELECT id, name, email, phone, role, status, monthly_target, low_stock_threshold, pix_key, pix_type FROM users ORDER BY name'
+      'SELECT id, name, email, phone, role, status, monthly_target, low_stock_threshold, pix_key, pix_type, pix_proof_photo, created_at FROM users ORDER BY name'
     );
     res.json({ users: result.rows });
   } catch (err: any) {
@@ -556,7 +557,7 @@ app.get('/api/users', authMiddleware, requireAdmin, async (_req: AuthRequest, re
 
 // POST /api/users
 app.post('/api/users', authMiddleware, requireAdmin, async (req: AuthRequest, res: Response) => {
-  const { name, email, phone, monthly_target, low_stock_threshold, pix_key, pix_type } = req.body;
+  const { name, email, phone, monthly_target, low_stock_threshold, pix_key, pix_type, pix_proof_photo } = req.body;
   if (!name || !email) {
     res.status(400).json({ error: 'Nome e e-mail são obrigatórios' });
     return;
@@ -567,9 +568,9 @@ app.post('/api/users', authMiddleware, requireAdmin, async (req: AuthRequest, re
     const userId = `user-${Date.now()}`;
 
     await pool.query(
-      `INSERT INTO users (id, name, email, password_hash, phone, role, status, monthly_target, low_stock_threshold, pix_key, pix_type, must_change_password)
-       VALUES ($1, $2, $3, $4, $5, 'SELLER', 'ACTIVE', $6, $7, $8, $9, true)`,
-      [userId, name, email.trim(), defaultPassHash, phone || null, monthly_target || 20, low_stock_threshold || 5, pix_key || null, pix_type || 'CPF']
+      `INSERT INTO users (id, name, email, password_hash, phone, role, status, monthly_target, low_stock_threshold, pix_key, pix_type, pix_proof_photo, must_change_password)
+       VALUES ($1, $2, $3, $4, $5, 'SELLER', 'ACTIVE', $6, $7, $8, $9, $10, true)`,
+      [userId, name, email.trim(), defaultPassHash, phone || null, monthly_target || 20, low_stock_threshold || 5, pix_key || null, pix_type || 'CPF', pix_proof_photo || null]
     );
 
     res.json({ success: true, message: 'Vendedor cadastrado com senha padrão: vendedor123' });
@@ -586,7 +587,7 @@ app.post('/api/users', authMiddleware, requireAdmin, async (req: AuthRequest, re
 // PUT /api/users/:id
 app.put('/api/users/:id', authMiddleware, requireAdmin, async (req: AuthRequest, res: Response) => {
   const userId = req.params.id;
-  const { name, email, phone, monthly_target, low_stock_threshold, status, pix_key, pix_type } = req.body;
+  const { name, email, phone, monthly_target, low_stock_threshold, status, pix_key, pix_type, pix_proof_photo } = req.body;
 
   try {
     await pool.query(
@@ -599,8 +600,9 @@ app.put('/api/users/:id', authMiddleware, requireAdmin, async (req: AuthRequest,
            status = COALESCE($6, status, 'ACTIVE'),
            pix_key = $7,
            pix_type = $8,
+           pix_proof_photo = COALESCE($9, pix_proof_photo),
            updated_at = NOW() 
-       WHERE id = $9`,
+       WHERE id = $10`,
       [
         name,
         email ? email.trim() : null,
@@ -610,6 +612,7 @@ app.put('/api/users/:id', authMiddleware, requireAdmin, async (req: AuthRequest,
         status || 'ACTIVE',
         pix_key || null,
         pix_type || 'CPF',
+        pix_proof_photo || null,
         userId
       ]
     );
@@ -633,18 +636,28 @@ app.post('/api/users/:id/reset-sessions', authMiddleware, requireAdmin, async (r
 
 // --- 5. COMISSÕES ---
 
+// GET /api/commissions
+app.get('/api/commissions', authMiddleware, requireAdmin, async (_req: AuthRequest, res: Response) => {
+  try {
+    const result = await pool.query('SELECT * FROM commission_statements ORDER BY reference_month DESC, paid_at DESC');
+    res.json({ statements: result.rows });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Erro ao buscar extrato de comissões' });
+  }
+});
+
 // POST /api/commissions/toggle
 app.post('/api/commissions/toggle', authMiddleware, requireAdmin, async (req: AuthRequest, res: Response) => {
-  const { sellerId, referenceMonth, paid } = req.body;
+  const { sellerId, referenceMonth, paid, paymentReceipt } = req.body;
   const status = paid ? 'PAID' : 'PENDING';
 
   try {
     await pool.query(
-      `INSERT INTO commission_statements (id, seller_id, reference_month, status, paid_at, paid_by)
-       VALUES ($1, $2, $3, $4, CASE WHEN $4 = 'PAID' THEN NOW() ELSE NULL END, $5)
+      `INSERT INTO commission_statements (id, seller_id, reference_month, status, paid_at, paid_by, payment_receipt)
+       VALUES ($1, $2, $3, $4, CASE WHEN $4 = 'PAID' THEN NOW() ELSE NULL END, $5, $6)
        ON CONFLICT (seller_id, reference_month) 
-       DO UPDATE SET status = $4, paid_at = CASE WHEN $4 = 'PAID' THEN NOW() ELSE NULL END, paid_by = $5`,
-      [`comm-${sellerId}-${referenceMonth}`, sellerId, referenceMonth, status, req.user!.id]
+       DO UPDATE SET status = $4, paid_at = CASE WHEN $4 = 'PAID' THEN NOW() ELSE NULL END, paid_by = $5, payment_receipt = COALESCE($6, commission_statements.payment_receipt)`,
+      [`comm-${sellerId}-${referenceMonth}`, sellerId, referenceMonth, status, req.user!.id, paymentReceipt || null]
     );
     res.json({ success: true, message: `Status de comissão atualizado para ${status}` });
   } catch (err) {

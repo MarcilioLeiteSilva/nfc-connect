@@ -84,6 +84,7 @@ export const api = {
     nfcConfigured: boolean;
     qrcodeTested: boolean;
     clientRequestId?: string;
+    installationPhoto?: string;
   }) =>
     request('/sales', {
       method: 'POST',

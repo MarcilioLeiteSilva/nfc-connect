@@ -302,9 +302,10 @@ class StorageService {
     quantity: number;
     nfcConfigured: boolean;
     qrcodeTested: boolean;
+    installationPhoto?: string;
     isOffline?: boolean;
   }): Promise<{ success: boolean; message: string; sale?: Sale }> {
-    const { sellerId, productId, establishmentName, quantity, nfcConfigured, qrcodeTested, isOffline } = params;
+    const { sellerId, productId, establishmentName, quantity, nfcConfigured, qrcodeTested, installationPhoto, isOffline } = params;
 
     if (quantity <= 0) {
       return { success: false, message: 'Quantidade deve ser maior que zero.' };
@@ -346,6 +347,7 @@ class StorageService {
       commission_amount: quantity * product.commission_unit,
       nfc_configured: true,
       qrcode_tested: true,
+      installation_photo: installationPhoto,
       sale_date: now,
       synced_at: isOffline ? undefined : now,
       client_request_id: clientRequestId,
@@ -380,7 +382,8 @@ class StorageService {
           quantity,
           nfcConfigured,
           qrcodeTested,
-          clientRequestId
+          clientRequestId,
+          installationPhoto
         });
       } catch (apiErr) {
         console.warn('[Storage] Falha no envio à API, salvando de forma criptografada para reenvio:', apiErr);
@@ -456,7 +459,8 @@ class StorageService {
             quantity: sale.quantity,
             nfcConfigured: sale.nfc_configured,
             qrcodeTested: sale.qrcode_tested,
-            clientRequestId: sale.client_request_id
+            clientRequestId: sale.client_request_id,
+            installationPhoto: sale.installation_photo
           });
 
           // Atualiza status no histórico da sessão
@@ -498,6 +502,45 @@ class StorageService {
       return syncedCount;
     } finally {
       this.isSyncing = false;
+    }
+  }
+
+  /**
+   * Sincroniza o estoque e histórico de vendas do vendedor direto do PostgreSQL.
+   * Chamado automaticamente assim que o vendedor abre o celular ou faz login.
+   */
+  public async syncSellerDataFromApi(): Promise<void> {
+    if (!this.currentUser || this.currentUser.role !== 'SELLER') return;
+
+    try {
+      // 1. Busca movimentações de estoque reais do PostgreSQL
+      const movRes = await api.getStockMovements(this.currentUser.id).catch(() => ({ movements: [] }));
+      if (Array.isArray(movRes.movements) && movRes.movements.length > 0) {
+        this.movements = movRes.movements.map((m: any) => ({
+          ...m,
+          quantity: Number(m.quantity)
+        }));
+      }
+
+      // 2. Busca vendas confirmadas do vendedor
+      const salesRes = await api.getSales().catch(() => ({ sales: [] }));
+      if (Array.isArray(salesRes.sales)) {
+        const pendingLocal = this.sales.filter(s => s.status === 'PENDING_SYNC');
+        const apiSales = salesRes.sales.map((s: any) => ({
+          ...s,
+          unit_price: Number(s.unit_price),
+          total_price: Number(s.total_price),
+          commission_amount: Number(s.commission_amount)
+        }));
+        
+        const apiIds = new Set(apiSales.map((s: any) => s.id));
+        this.sales = [...pendingLocal.filter(p => !apiIds.has(p.id)), ...apiSales];
+      }
+
+      this.persist();
+      this.notify();
+    } catch (err) {
+      console.warn('[Storage] Falha ao sincronizar dados da API:', err);
     }
   }
 

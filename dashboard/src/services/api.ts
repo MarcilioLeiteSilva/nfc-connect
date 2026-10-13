@@ -67,6 +67,7 @@ export const api = {
     low_stock_threshold?: number;
     pix_key?: string;
     pix_type?: string;
+    pix_proof_photo?: string | null;
   }) =>
     request<{ success: boolean; message: string }>('/users', {
       method: 'POST',
@@ -107,9 +108,12 @@ export const api = {
     }),
 
   // Comissões
-  toggleCommission: (sellerId: string, referenceMonth: string, paid: boolean) =>
+  getCommissions: () =>
+    request<{ statements: any[] }>('/commissions'),
+
+  toggleCommission: (sellerId: string, referenceMonth: string, paid: boolean, paymentReceipt?: string) =>
     request<{ success: boolean; message: string }>('/commissions/toggle', {
       method: 'POST',
-      body: JSON.stringify({ sellerId, referenceMonth, paid })
+      body: JSON.stringify({ sellerId, referenceMonth, paid, paymentReceipt })
     })
 };

@@ -8,7 +8,9 @@ import {
   AlertCircle,
   ShieldCheck,
   Check,
-  Building2
+  Building2,
+  Camera,
+  Trash2
 } from 'lucide-react';
 
 interface SellerNewSaleProps {
@@ -30,8 +32,53 @@ export const SellerNewSale: React.FC<SellerNewSaleProps> = ({
 
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successResult, setSuccessResult] = useState<{ message: string; commission: number; total: number } | null>(null);
+  const [installationPhoto, setInstallationPhoto] = useState<string | null>(null);
+  const [isCompressingPhoto, setIsCompressingPhoto] = useState(false);
+
+  React.useEffect(() => {
+    storageService.syncSellerDataFromApi();
+  }, [currentUser.id]);
 
   const availableStock = storageService.getAvailableStock(currentUser.id, productId);
+
+  const handlePhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsCompressingPhoto(true);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const maxDim = 800;
+        let width = img.width;
+        let height = img.height;
+        if (width > height) {
+          if (width > maxDim) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          }
+        } else {
+          if (height > maxDim) {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressed = canvas.toDataURL('image/jpeg', 0.72);
+          setInstallationPhoto(compressed);
+        }
+        setIsCompressingPhoto(false);
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
 
   const unitPrice = 90.0;
   const unitCommission = 20.0;
@@ -83,6 +130,7 @@ export const SellerNewSale: React.FC<SellerNewSaleProps> = ({
         quantity,
         nfcConfigured,
         qrcodeTested,
+        installationPhoto: installationPhoto || undefined,
         isOffline: !isOnline
       });
 
@@ -473,6 +521,95 @@ export const SellerNewSale: React.FC<SellerNewSaleProps> = ({
               </div>
             </div>
           </div>
+        </div>
+
+        {/* 5. FOTO DA PLACA INSTALADA NO BALCÃO (AUDITORIA) */}
+        <div>
+          <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-main)', display: 'block', marginBottom: 4 }}>
+            5. FOTO DA PLACA NO BALCÃO (AUDITORIA)
+          </label>
+          <p style={{ fontSize: 11.5, color: 'var(--text-dim)', margin: '0 0 10px 0' }}>
+            Tire uma foto comprovando a placa instalada no balcão do lojista para validação executiva.
+          </p>
+
+          {installationPhoto ? (
+            <div
+              style={{
+                borderRadius: 14,
+                overflow: 'hidden',
+                border: '1px solid rgba(16, 185, 129, 0.4)',
+                background: 'rgba(16, 185, 129, 0.08)',
+                padding: 12,
+                display: 'flex',
+                gap: 12,
+                alignItems: 'center'
+              }}
+            >
+              <img
+                src={installationPhoto}
+                alt="Foto da Instalação"
+                style={{
+                  width: 68,
+                  height: 68,
+                  objectFit: 'cover',
+                  borderRadius: 10,
+                  border: '1px solid rgba(255, 255, 255, 0.2)'
+                }}
+              />
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#34d399', fontSize: 13, fontWeight: 700 }}>
+                  <CheckCircle size={16} />
+                  <span>Foto Anexada</span>
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 2 }}>
+                  Pronta para conferência no Dashboard
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setInstallationPhoto(null)}
+                style={{
+                  padding: 8,
+                  background: 'rgba(239, 68, 68, 0.15)',
+                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                  color: '#f87171',
+                  borderRadius: 8,
+                  cursor: 'pointer'
+                }}
+                title="Remover Foto"
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
+          ) : (
+            <label
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 10,
+                padding: '16px 20px',
+                borderRadius: 14,
+                background: 'rgba(15, 23, 42, 0.6)',
+                border: '1px dashed rgba(56, 189, 248, 0.4)',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                color: 'var(--text-main)'
+              }}
+            >
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handlePhotoCapture}
+                style={{ display: 'none' }}
+              />
+              <Camera size={20} color="#38bdf8" />
+              <span style={{ fontSize: 13, fontWeight: 600, color: '#38bdf8' }}>
+                {isCompressingPhoto ? 'Processando Foto...' : 'Fotografar Placa no Balcão'}
+              </span>
+            </label>
+          )}
         </div>
 
         {/* BOTÃO FINAL DE CONFIRMAÇÃO */}
